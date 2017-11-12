@@ -1,0 +1,7 @@
+<component name="CopyrightManager">
+  <copyright>
+    <option name="allowReplaceRegexp" value="[0-9]+/[0-9]+/[0-9]+ [0-9]+:[0-9]+" />
+    <option name="notice" value="Project Name: &amp;#36;project.name&#10;File Name: &amp;#36;file.fileName&#10;Last modified: 20&amp;#36;file.lastModified&#10;Author: Hiroaki Goto&#10;&#10;Copyright (c) &amp;#36;today.year Hiroaki Goto. All rights reserved." />
+    <option name="myName" value="Hiroaki Goto" />
+  </copyright>
+</component>
