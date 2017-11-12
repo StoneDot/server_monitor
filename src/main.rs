@@ -39,7 +39,7 @@ fn retrieve_process_stats(target_process_names: &[&str]) -> HashMap<String, Vec<
     let dev_path = Path::new("/proc");
     let mut stats: HashMap<String, Vec<Stat>> = HashMap::new();
     for entry in dev_path.read_dir()
-        .expect("Cannot read /dev as directory") {
+        .expect("Could not read /proc as directory") {
         if let Ok(entry) = entry {
             if let Some(stat) = retrieve_process_stat(&entry.path()) {
                 if !re.is_match(&stat.command) { continue; }
