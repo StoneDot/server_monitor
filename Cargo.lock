@@ -1,4 +1,4 @@
 [root]
-name = "ServerMonitor"
+name = "server_monitor"
 version = "0.1.0"
 
