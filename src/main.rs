@@ -169,7 +169,6 @@ fn main() {
     let elapsed = cur_time.duration_since(UNIX_EPOCH)
         .expect("Check system time. Something wrong.").as_secs();
 
-
     let process_targets = ["nginx", "http", "fish", "tmux: server"];
     let old_stats = retrieve_process_stats(&process_targets);
     thread::sleep(Duration::from_secs(3));
