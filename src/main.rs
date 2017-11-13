@@ -7,8 +7,10 @@
 // Copyright (c) 2017 Hiroaki Goto. All rights reserved.
 //
 
-#[macro_use]
+extern crate serde;
 extern crate serde_json;
+#[macro_use]
+extern crate serde_derive;
 extern crate regex;
 extern crate procinfo;
 extern crate libc;
@@ -24,7 +26,7 @@ use std::time::Duration;
 use regex::Regex;
 use procinfo::pid::Stat;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 struct DiffStat {
     utime: libc::clock_t,
     stime: libc::clock_t,
@@ -166,22 +168,11 @@ fn main() {
     let cur_time = SystemTime::now();
     let elapsed = cur_time.duration_since(UNIX_EPOCH)
         .expect("Check system time. Something wrong.").as_secs();
-    let john = json!([
-        "bq.system_info",
-        elapsed,
-        {
-            "name": "John Doe",
-            "age": 43,
-            "phones": [
-                "+44 1234567",
-                "+44 2345678"
-            ]
-        }
-    ]);
+
 
     let process_targets = ["nginx", "http", "fish", "tmux: server"];
     let old_stats = retrieve_process_stats(&process_targets);
-    thread::sleep(Duration::from_secs(5));
+    thread::sleep(Duration::from_secs(3));
     let stats = retrieve_process_stats(&process_targets);
     for (key, stats) in stats.iter() {
         if let Some(old_stats) = old_stats.get(key) {
@@ -189,10 +180,8 @@ fn main() {
             let stats_sum = stats.iter().fold(zero, |ac, e| ac + e);
             let old_stats_sum = old_stats.iter().fold(zero, |ac, e| ac + e);
             let diff = stats_sum - old_stats_sum;
-            println!("{}: {:?}", key, diff);
+            let j = serde_json::to_string(&diff).unwrap();
+            println!("{}: {}", key, j);
         }
     }
-
-    println!("first phone number: {}", john[2]["phones"][0]);
-    println!("{}", john.to_string());
 }
