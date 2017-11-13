@@ -17,9 +17,115 @@ extern crate itertools;
 use std::collections::HashMap;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
+use std::ops;
 use std::path::{Path, PathBuf};
+use std::thread;
+use std::time::Duration;
 use regex::Regex;
 use procinfo::pid::Stat;
+
+#[derive(Debug, Copy, Clone)]
+struct DiffStat {
+    utime: libc::clock_t,
+    stime: libc::clock_t,
+    cutime: libc::clock_t,
+    cstime: libc::clock_t,
+    minflt: usize,
+    cminflt: usize,
+    majflt: usize,
+    cmajflt: usize,
+}
+
+impl DiffStat {
+    fn new() -> DiffStat {
+        DiffStat {
+            utime: 0,
+            stime: 0,
+            cutime: 0,
+            cstime: 0,
+            minflt: 0,
+            cminflt: 0,
+            majflt: 0,
+            cmajflt: 0
+        }
+    }
+    fn new_from(stat: &Stat) -> DiffStat {
+        DiffStat {
+            utime: stat.utime,
+            stime: stat.stime,
+            cutime: stat.cutime,
+            cstime: stat.cstime,
+            minflt: stat.minflt,
+            cminflt: stat.cminflt,
+            majflt: stat.majflt,
+            cmajflt: stat.cmajflt
+        }
+    }
+}
+
+impl ops::Add for DiffStat {
+    type Output = DiffStat;
+    fn add(self, other: DiffStat) -> DiffStat {
+        DiffStat {
+            utime: self.utime + other.utime,
+            stime: self.stime + other.stime,
+            cutime: self.cutime + other.cutime,
+            cstime: self.cstime + other.cstime,
+            minflt: self.minflt + other.minflt,
+            cminflt: self.cminflt + other.cminflt,
+            majflt: self.majflt + other.majflt,
+            cmajflt: self.cmajflt + other.cmajflt
+        }
+    }
+}
+
+impl<'a> ops::Add<&'a Stat> for DiffStat {
+    type Output = DiffStat;
+    fn add(self, other: &'a Stat) -> DiffStat {
+        DiffStat {
+            utime: self.utime + other.utime,
+            stime: self.stime + other.stime,
+            cutime: self.cutime + other.cutime,
+            cstime: self.cstime + other.cstime,
+            minflt: self.minflt + other.minflt,
+            cminflt: self.cminflt + other.cminflt,
+            majflt: self.majflt + other.majflt,
+            cmajflt: self.cmajflt + other.cmajflt
+        }
+    }
+}
+
+impl ops::Sub for DiffStat {
+    type Output = DiffStat;
+    fn sub(self, other: DiffStat) -> DiffStat {
+        DiffStat {
+            utime: self.utime - other.utime,
+            stime: self.stime - other.stime,
+            cutime: self.cutime - other.cutime,
+            cstime: self.cstime - other.cstime,
+            minflt: self.minflt - other.minflt,
+            cminflt: self.cminflt - other.cminflt,
+            majflt: self.majflt - other.majflt,
+            cmajflt: self.cmajflt - other.cmajflt
+        }
+    }
+}
+
+impl ops::Sub<Stat> for DiffStat {
+    type Output = DiffStat;
+    fn sub(self, other: Stat) -> DiffStat {
+        DiffStat {
+            utime: self.utime - other.utime,
+            stime: self.stime - other.stime,
+            cutime: self.cutime - other.cutime,
+            cstime: self.cstime - other.cstime,
+            minflt: self.minflt - other.minflt,
+            cminflt: self.cminflt - other.cminflt,
+            majflt: self.majflt - other.majflt,
+            cmajflt: self.cmajflt - other.cmajflt
+        }
+    }
+}
 
 fn retrieve_process_stat(path: &PathBuf) -> Option<Stat> {
     let pid = str::parse::<libc::pid_t>(
@@ -73,9 +179,19 @@ fn main() {
         }
     ]);
 
-    let process_targets = ["nginx", "http", "fish"];
+    let process_targets = ["nginx", "http", "fish", "tmux: server"];
+    let old_stats = retrieve_process_stats(&process_targets);
+    thread::sleep(Duration::from_secs(5));
     let stats = retrieve_process_stats(&process_targets);
-    println!("{:#?}", stats);
+    for (key, stats) in stats.iter() {
+        if let Some(old_stats) = old_stats.get(key) {
+            let zero = DiffStat::new();
+            let stats_sum = stats.iter().fold(zero, |ac, e| ac + e);
+            let old_stats_sum = old_stats.iter().fold(zero, |ac, e| ac + e);
+            let diff = stats_sum - old_stats_sum;
+            println!("{}: {:?}", key, diff);
+        }
+    }
 
     println!("first phone number: {}", john[2]["phones"][0]);
     println!("{}", john.to_string());
