@@ -13,6 +13,7 @@ extern crate regex;
 extern crate procinfo;
 extern crate libc;
 extern crate itertools;
+
 use std::collections::HashMap;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
@@ -34,7 +35,7 @@ fn retrieve_process_stat(path: &PathBuf) -> Option<Stat> {
 
 fn retrieve_process_stats(target_process_names: &[&str]) -> HashMap<String, Vec<Stat>> {
     let escaped = target_process_names.iter().map(|s| regex::escape(s));
-    let pattern = format!(r"^(?:{})$",  itertools::join(escaped, "|"));
+    let pattern = format!(r"^(?:{})$", itertools::join(escaped, "|"));
     let re = Regex::new(&pattern).unwrap();
     let dev_path = Path::new("/proc");
     let mut stats: HashMap<String, Vec<Stat>> = HashMap::new();
