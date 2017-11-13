@@ -174,14 +174,17 @@ fn main() {
     let old_stats = retrieve_process_stats(&process_targets);
     thread::sleep(Duration::from_secs(3));
     let stats = retrieve_process_stats(&process_targets);
+
+    let mut diff_record = HashMap::<String, DiffStat>::new();
     for (key, stats) in stats.iter() {
         if let Some(old_stats) = old_stats.get(key) {
             let zero = DiffStat::new();
             let stats_sum = stats.iter().fold(zero, |ac, e| ac + e);
             let old_stats_sum = old_stats.iter().fold(zero, |ac, e| ac + e);
             let diff = stats_sum - old_stats_sum;
-            let j = serde_json::to_string(&diff).unwrap();
-            println!("{}: {}", key, j);
+            diff_record.insert(key.clone(), diff);
         }
     }
+    let j = serde_json::to_string(&diff_record).unwrap();
+    println!("{}", j);
 }
