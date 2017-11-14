@@ -179,12 +179,38 @@ fn retrieve_process_stats(target_process_names: &[&str]) -> FnvHashMap<String, V
     stats
 }
 
+fn calc_total_diff_using_sort(stats: &[Stat], old_stats: &[Stat]) -> DiffStat {
+    let mut stats: Vec<_> = stats.iter().map(
+        |x| ProcessDiffStat::new_from(x)).collect();
+    stats.sort_unstable_by_key(|x| x.pid);
+    let mut old_stats: Vec<_> = old_stats.iter().map(
+        |x| ProcessDiffStat::new_from(x)).collect();
+    old_stats.sort_unstable_by_key(|x| x.pid);
+    let mut idx_s = 0;
+    let mut idx_o = 0;
+    let mut stats_sum = DiffStat::new();
+    let mut old_stats_sum = DiffStat::new();
+    while idx_s < stats.len() && idx_o < old_stats.len() {
+        if stats[idx_s].pid == old_stats[idx_o].pid {
+            stats_sum = stats_sum + stats[idx_s].stat;
+            old_stats_sum = old_stats_sum + old_stats[idx_o].stat;
+            idx_s += 1;
+            idx_o += 1
+        } else if stats[idx_s].pid < old_stats[idx_o].pid {
+            idx_s += 1
+        } else {
+            idx_o += 1
+        }
+    }
+    stats_sum - old_stats_sum
+}
+
 fn main() {
     let cur_time = SystemTime::now();
     let elapsed = cur_time.duration_since(UNIX_EPOCH)
         .expect("Check system time. Something wrong.").as_secs();
 
-    let process_targets = ["nginx", "http", "fish", "tmux: server"];
+    let process_targets = ["nginx", "http", "fish", "tmux: server", "server_monitor"];
     let old_stats = retrieve_process_stats(&process_targets);
     thread::sleep(Duration::from_secs(3));
     let stats = retrieve_process_stats(&process_targets);
@@ -192,29 +218,7 @@ fn main() {
     let mut diff_record: FnvHashMap<String, DiffStat> = FnvHashMap::default();
     for (key, stats) in stats.iter() {
         if let Some(old_stats) = old_stats.get(key) {
-            let mut stats: Vec<_> = stats.iter().map(
-                |x| ProcessDiffStat::new_from(x)).collect();
-            stats.sort_unstable_by_key(|x| x.pid);
-            let mut old_stats: Vec<_> = old_stats.iter().map(
-                |x| ProcessDiffStat::new_from(x)).collect();
-            old_stats.sort_unstable_by_key(|x| x.pid);
-            let mut idx_s = 0;
-            let mut idx_o = 0;
-            let mut stats_sum = DiffStat::new();
-            let mut old_stats_sum = DiffStat::new();
-            while idx_s < stats.len() && idx_o < old_stats.len() {
-                if stats[idx_s].pid == old_stats[idx_o].pid {
-                    stats_sum = stats_sum + stats[idx_s].stat;
-                    old_stats_sum = old_stats_sum + old_stats[idx_o].stat;
-                    idx_s += 1;
-                    idx_o += 1
-                } else if stats[idx_s].pid < old_stats[idx_o].pid {
-                    idx_s += 1
-                } else {
-                    idx_o += 1
-                }
-            }
-            let diff = stats_sum - old_stats_sum;
+            let diff = calc_total_diff_using_sort(stats, old_stats);
             diff_record.insert(key.clone(), diff);
         }
     }
