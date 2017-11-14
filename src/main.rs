@@ -161,7 +161,8 @@ fn retrieve_process_stats(target_process_names: &[&str]) -> FnvHashMap<String, V
     let pattern = format!(r"^(?:{})$", itertools::join(escaped, "|"));
     let re = Regex::new(&pattern).unwrap();
     let dev_path = Path::new("/proc");
-    let mut stats: FnvHashMap<String, Vec<Stat>> = FnvHashMap::default();
+    let mut stats: FnvHashMap<String, Vec<Stat>> =
+        FnvHashMap::with_capacity_and_hasher(target_process_names.len(), Default::default());
     for entry in dev_path.read_dir()
         .expect("Could not read /proc as directory") {
         if let Ok(entry) = entry {
@@ -215,7 +216,8 @@ fn main() {
     thread::sleep(Duration::from_secs(3));
     let stats = retrieve_process_stats(&process_targets);
 
-    let mut diff_record: FnvHashMap<String, DiffStat> = FnvHashMap::default();
+    let mut diff_record: FnvHashMap<String, DiffStat> =
+        FnvHashMap::with_capacity_and_hasher(process_targets.len(), Default::default());
     for (key, stats) in stats.iter() {
         if let Some(old_stats) = old_stats.get(key) {
             let diff = calc_total_diff_using_sort(stats, old_stats);
