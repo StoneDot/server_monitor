@@ -12,3 +12,12 @@ procinfo = "0.4"
 libc = "0.2"
 itertools = "0.7"
 fnv = "1.0"
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = 'unwind'
