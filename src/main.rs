@@ -172,8 +172,9 @@ fn retrieve_process_stats(target_process_names: &[&str]) -> FnvHashMap<String, V
                     let command = stat.command.clone();
                     stats.insert(command, vec![]);
                 }
-                let vec = stats.get_mut(&stat.command).unwrap();
-                vec.push(stat);
+                if let Some(vec) = stats.get_mut(&stat.command) {
+                    vec.push(stat);
+                }
             }
         }
     }
@@ -187,6 +188,7 @@ fn calc_total_diff_using_sort(stats: &[Stat], old_stats: &[Stat]) -> DiffStat {
     let mut old_stats: Vec<_> = old_stats.iter().map(
         |x| ProcessDiffStat::new_from(x)).collect();
     old_stats.sort_unstable_by_key(|x| x.pid);
+
     let mut idx_s = 0;
     let mut idx_o = 0;
     let mut stats_sum = DiffStat::new();
@@ -194,8 +196,7 @@ fn calc_total_diff_using_sort(stats: &[Stat], old_stats: &[Stat]) -> DiffStat {
     while idx_s < stats.len() && idx_o < old_stats.len() {
         if stats[idx_s].pid == old_stats[idx_o].pid {
             stats_sum = stats_sum + stats[idx_s].stat;
-            old_stats_sum = old_stats_sum + old_stats[idx_o].stat;
-            idx_s += 1;
+            old_stats_sum = old_stats_sum + old_stats[idx_o].stat;            idx_s += 1;
             idx_o += 1
         } else if stats[idx_s].pid < old_stats[idx_o].pid {
             idx_s += 1
@@ -206,24 +207,51 @@ fn calc_total_diff_using_sort(stats: &[Stat], old_stats: &[Stat]) -> DiffStat {
     stats_sum - old_stats_sum
 }
 
-fn main() {
-    let cur_time = SystemTime::now();
-    let elapsed = cur_time.duration_since(UNIX_EPOCH)
-        .expect("Check system time. Something wrong.").as_secs();
-
-    let process_targets = ["nginx", "http", "fish", "tmux: server", "server_monitor"];
-    let old_stats = retrieve_process_stats(&process_targets);
-    thread::sleep(Duration::from_secs(3));
-    let stats = retrieve_process_stats(&process_targets);
-
+fn generate_diff_stats(number_of_target_process: usize, old_stats: &FnvHashMap<String, Vec<Stat>>,
+                       stats: &FnvHashMap<String, Vec<Stat>>) -> FnvHashMap<String, DiffStat> {
+    // ProcessName -> DiffStat
     let mut diff_record: FnvHashMap<String, DiffStat> =
-        FnvHashMap::with_capacity_and_hasher(process_targets.len(), Default::default());
+        FnvHashMap::with_capacity_and_hasher(number_of_target_process, Default::default());
     for (key, stats) in stats.iter() {
         if let Some(old_stats) = old_stats.get(key) {
             let diff = calc_total_diff_using_sort(stats, old_stats);
             diff_record.insert(key.clone(), diff);
         }
     }
+    diff_record
+}
+
+fn retrieve_stats(target_processes: &[&str], wait_time: Duration) -> FnvHashMap<String, DiffStat> {
+    let old_stats = retrieve_process_stats(&target_processes);
+    thread::sleep(wait_time);
+    let stats = retrieve_process_stats(&target_processes);
+    generate_diff_stats(target_processes.len(), &old_stats, &stats)
+}
+
+fn start_retrieve_loop<F: Fn(FnvHashMap<String, DiffStat>)>(target_processes: &[&str], wait_time: Duration, callback: F) {
+    let mut old_stats = retrieve_process_stats(&target_processes);
+    loop {
+        thread::sleep(wait_time);
+        let stats = retrieve_process_stats(&target_processes);
+        let diff_record = generate_diff_stats(target_processes.len(), &old_stats, &stats);
+        callback(diff_record);
+        old_stats = stats;
+    }
+}
+
+fn main() {
+    let cur_time = SystemTime::now();
+    let elapsed = cur_time.duration_since(UNIX_EPOCH)
+        .expect("Check system time. Something wrong.").as_secs();
+
+    let process_targets = ["nginx", "http", "fish", "tmux: server", "server_monitor"];
+
+    let diff_record = retrieve_stats(&process_targets, Duration::from_secs(3));
     let j = serde_json::to_string(&diff_record).unwrap();
     println!("{}", j);
+
+    start_retrieve_loop(&process_targets, Duration::from_secs(5), |record|{
+        let j = serde_json::to_string(&record).unwrap();
+        println!("{}", j);
+    });
 }
